@@ -50,3 +50,7 @@ class CVCore:
     def GetCurrentImage(self):
         return self.ImageWrappers[self.CurrentImageIndex].GetImage()
         return cv2.getWindowProperty(self.WindowName, cv2.WND_PROP_VISIBLE) < 1
+    
+
+    def Shutdown(self):
+        cv2.destroyAllWindows()
