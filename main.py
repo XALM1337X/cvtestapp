@@ -3,8 +3,8 @@ from cvcore.cvcore import CVCore  # Importing the CVCore class from the cvcore m
 
 def main():
     cv_core = CVCore(win_name="done")  # Create an instance of the CVCore class
-    cv_core.AddImage("enough_for_today.png")
-    cv_core.AddImage("toaster_bath.png")  # Adding another image for demonstration
+    cv_core.AddImage("rec\\enough_for_today.png")
+    cv_core.AddImage("rec\\toaster_bath.png")  # Adding another image for demonstration
 
     cv_core.Render(cv_core.GetCurrentImage())
 
