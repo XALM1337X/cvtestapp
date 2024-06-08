@@ -14,9 +14,9 @@ class ImageWrapper:
         self.ImageArray = cv2.resize(self.ImageArray, (width, height))
         self.UpdateDimensions()
 
-    def UpdateDimensions(self):
+    def UpdateDimensionsCpy(self, width, height):
         if self.ImageArray is not None:
-            self.Height, self.Width = self.ImageArray.shape[:2]
+            return cv2.resize(self.ImageArray.copy(), (width, height))
 
     def SetTopLeftCorner(self, x, y):
         self.TopLeftX = x
