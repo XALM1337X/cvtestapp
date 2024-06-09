@@ -7,12 +7,10 @@ class ImageWrapper:
         self.TopLeftY = 0
         self.Width = 0
         self.Height = 0
-        if self.ImageArray is not None:
-            self.UpdateDimensions()
 
-    def ResizeImage(self, width, height):
-        self.ImageArray = cv2.resize(self.ImageArray, (width, height))
-        self.UpdateDimensions()
+    def ResizeImageCpy(self, width, height):
+        cpy = cv2.resize(self.ImageArray, (width, height))
+        return cpy
 
     def UpdateDimensionsCpy(self, width, height):
         if self.ImageArray is not None:
