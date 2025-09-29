@@ -90,7 +90,7 @@ class CVCore:
             area = cv2.contourArea(contour)
             
             # Only draw outlines around objects larger than 500 pixels
-            if area > 500:
+            if area > 100:
                 object_count += 1
                 # Draw green outline around the object
                 cv2.drawContours(result_frame, [contour], -1, (0, 255, 0), 3)
