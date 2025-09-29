@@ -44,17 +44,6 @@ class CVCore:
             print(f"Failed to open video source: {source}")
             return False
 
-
-    def IsVideoActive(self):
-        """
-        Check if video capture is active and window is still open
-        Returns: True if video should continue, False if should stop
-        """
-        return (self.VideoCapture is not None and 
-                self.VideoCapture.isOpened() and 
-                not self.CheckWindowClosed())
-
-
     def ProcessVideoFrame(self):
         """
         Get next frame and process it with simple object detection
@@ -64,41 +53,13 @@ class CVCore:
 
         if frame is not None:
             # Use simple object detection
-            detected_frame = self.DetectObjectsSimple(frame)
+            detected_frame = self.DetectObjects(frame)
             self.RenderFrame(detected_frame)
             return True
         return False
 
-    def DebugDetectAll(self, frame):
-        """
-        Debug method: show ALL detected contours without filtering
-        """
-        result_frame = frame.copy()
-        
-        # Convert to grayscale and find contours
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        edges = cv2.Canny(blurred, 50, 150)
-        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-        print(f"DEBUG: Found {len(contours)} contours")
-        
-        # Draw ALL contours in different colors
-        for i, contour in enumerate(contours):
-            area = cv2.contourArea(contour)
-            if area > 100:  # Very low threshold for debugging
-                color = (0, 255, 0) if area > 500 else (0, 0, 255)  # Green for large, red for small
-                cv2.drawContours(result_frame, [contour], -1, color, 2)
-                
-                # Draw area as text
-                centroid = self.CalculateCentroid(contour)
-                cv2.putText(result_frame, f"A:{int(area)}", 
-                           (centroid[0], centroid[1]), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
-        
-        return result_frame
 
-    def DetectObjectsSimple(self, frame):
+    def DetectObjects(self, frame):
         """
         Simple object detection - detects objects based on current detection mode
         """
@@ -152,121 +113,6 @@ class CVCore:
         
         # Update console with simple status
         print(f"\rDetected {object_count} objects (all)", end="", flush=True)
-        
-        return result_frame
-
-    def DetectColorObjects(self, frame, color_name):
-        """
-        Detect objects of a specific color
-        """
-        result_frame = frame.copy()
-        
-        # Convert BGR to HSV for better color detection
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        
-        # Get color range for the specified color
-        if color_name in self.ColorRanges:
-            lower_color, upper_color = self.ColorRanges[color_name]
-        elif color_name in self.CustomColors:
-            lower_color, upper_color = self.CustomColors[color_name]
-        else:
-            print(f"\rUnknown color: {color_name}", end="", flush=True)
-            return result_frame
-            
-        # Create mask for the color
-        mask = cv2.inRange(hsv, lower_color, upper_color)
-        
-        # Apply some morphological operations to clean up the mask
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        
-        # Find contours in the mask
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-        # Draw outlines around detected color objects
-        object_count = 0
-        for contour in contours:
-            area = cv2.contourArea(contour)
-            
-            # Only draw outlines around objects larger than 300 pixels (lower threshold for color detection)
-            if area > 300:
-                object_count += 1
-                # Draw outline around the object
-                cv2.drawContours(result_frame, [contour], -1, (0, 255, 0), 3)
-                
-                # Draw centroid as a small circle
-                centroid = self.CalculateCentroid(contour)
-                cv2.circle(result_frame, centroid, 5, (0, 255, 0), -1)
-                
-                # Get and display the average RGB color
-                avg_color = self.GetAverageColor(frame, contour)
-                color_text = f"RGB{avg_color}"
-                
-                # Draw color text above the centroid
-                text_position = (centroid[0] - 40, centroid[1] - 30)
-                cv2.putText(result_frame, color_text, text_position, 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-                cv2.putText(result_frame, color_text, text_position, 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
-        
-        # Update console with color-specific status
-        print(f"\rDetected {object_count} {color_name} objects", end="", flush=True)
-        
-        return result_frame
-
-    def DetectBrightObjects(self, frame):
-        """
-        Detect objects based on high brightness (light intensity)
-        """
-        result_frame = frame.copy()
-        
-        # Convert BGR to HSV for brightness analysis
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        
-        # Create mask for high brightness objects
-        # High brightness = well-lit objects, low brightness = dark objects
-        lower_brightness = np.array([0, 0, 180])    # Any hue, any saturation, high brightness
-        upper_brightness = np.array([179, 255, 255]) # Any hue, any saturation, max brightness
-        
-        mask = cv2.inRange(hsv, lower_brightness, upper_brightness)
-        
-        # Apply some morphological operations to clean up the mask
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        
-        # Find contours in the mask
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-        # Draw outlines around detected bright objects
-        object_count = 0
-        for contour in contours:
-            area = cv2.contourArea(contour)
-            
-            # Only draw outlines around objects larger than 300 pixels
-            if area > 300:
-                object_count += 1
-                # Draw outline around the object
-                cv2.drawContours(result_frame, [contour], -1, (0, 255, 0), 3)
-                
-                # Draw centroid as a small circle
-                centroid = self.CalculateCentroid(contour)
-                cv2.circle(result_frame, centroid, 5, (0, 255, 0), -1)
-                
-                # Get and display the average RGB color
-                avg_color = self.GetAverageColor(frame, contour)
-                color_text = f"RGB{avg_color}"
-                
-                # Draw color text above the centroid
-                text_position = (centroid[0] - 40, centroid[1] - 30)
-                cv2.putText(result_frame, color_text, text_position, 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-                cv2.putText(result_frame, color_text, text_position, 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
-        
-        # Update console with bright objects status
-        print(f"\rDetected {object_count} bright objects (high brightness)", end="", flush=True)
         
         return result_frame
 
@@ -334,6 +180,133 @@ class CVCore:
         print(f"\rDetected {object_count} bright {color_name} objects (LED lights)", end="", flush=True)
         
         return result_frame
+
+    def DetectBrightObjects(self, frame):
+        """
+        Detect objects based on high brightness (light intensity)
+        """
+        result_frame = frame.copy()
+        
+        # Convert BGR to HSV for brightness analysis
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        
+        # Create mask for high brightness objects
+        # High brightness = well-lit objects, low brightness = dark objects
+        lower_brightness = np.array([0, 0, 180])    # Any hue, any saturation, high brightness
+        upper_brightness = np.array([179, 255, 255]) # Any hue, any saturation, max brightness
+        
+        mask = cv2.inRange(hsv, lower_brightness, upper_brightness)
+        
+        # Apply some morphological operations to clean up the mask
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        
+        # Find contours in the mask
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # Draw outlines around detected bright objects
+        object_count = 0
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            
+            # Only draw outlines around objects larger than 300 pixels
+            if area > 300:
+                object_count += 1
+                # Draw outline around the object
+                cv2.drawContours(result_frame, [contour], -1, (0, 255, 0), 3)
+                
+                # Draw centroid as a small circle
+                centroid = self.CalculateCentroid(contour)
+                cv2.circle(result_frame, centroid, 5, (0, 255, 0), -1)
+                
+                # Get and display the average RGB color
+                avg_color = self.GetAverageColor(frame, contour)
+                color_text = f"RGB{avg_color}"
+                
+                # Draw color text above the centroid
+                text_position = (centroid[0] - 40, centroid[1] - 30)
+                cv2.putText(result_frame, color_text, text_position, 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                cv2.putText(result_frame, color_text, text_position, 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+        
+        # Update console with bright objects status
+        print(f"\rDetected {object_count} bright objects (high brightness)", end="", flush=True)
+        
+        return result_frame
+
+    def DetectColorObjects(self, frame, color_name):
+        """
+        Detect objects of a specific color
+        """
+        result_frame = frame.copy()
+        
+        # Convert BGR to HSV for better color detection
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        
+        # Get color range for the specified color
+        if color_name in self.ColorRanges:
+            lower_color, upper_color = self.ColorRanges[color_name]
+        elif color_name in self.CustomColors:
+            lower_color, upper_color = self.CustomColors[color_name]
+        else:
+            print(f"\rUnknown color: {color_name}", end="", flush=True)
+            return result_frame
+            
+        # Create mask for the color
+        mask = cv2.inRange(hsv, lower_color, upper_color)
+        
+        # Apply some morphological operations to clean up the mask
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        
+        # Find contours in the mask
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # Draw outlines around detected color objects
+        object_count = 0
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            
+            # Only draw outlines around objects larger than 300 pixels (lower threshold for color detection)
+            if area > 300:
+                object_count += 1
+                # Draw outline around the object
+                cv2.drawContours(result_frame, [contour], -1, (0, 255, 0), 3)
+                
+                # Draw centroid as a small circle
+                centroid = self.CalculateCentroid(contour)
+                cv2.circle(result_frame, centroid, 5, (0, 255, 0), -1)
+                
+                # Get and display the average RGB color
+                avg_color = self.GetAverageColor(frame, contour)
+                color_text = f"RGB{avg_color}"
+                
+                # Draw color text above the centroid
+                text_position = (centroid[0] - 40, centroid[1] - 30)
+                cv2.putText(result_frame, color_text, text_position, 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                cv2.putText(result_frame, color_text, text_position, 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+        
+        # Update console with color-specific status
+        print(f"\rDetected {object_count} {color_name} objects", end="", flush=True)
+        
+        return result_frame
+
+    def RenderFrame(self, frame=None):
+        """
+        Display a frame in the window
+        frame: frame to display, if None uses CurrentFrame
+        """
+        if frame is None:
+            frame = self.CurrentFrame
+        
+        if frame is not None:
+            cv2.imshow(self.WindowName, frame)
+    
 
     def SetBrightColorMode(self, color_name):
         """
@@ -614,24 +587,6 @@ class CVCore:
         hsv_range = self.RGBToHSVRange(rgb_color, tolerance)
         self.CustomColors[name] = hsv_range
 
-    def SetCustomColor(self, name):
-        """
-        Set detection mode to a custom color
-        """
-        if name in self.CustomColors:
-            self.DetectionMode = name
-            self.CurrentCustomColor = name
-        else:
-            print(f"\nCustom color '{name}' not found")
-
-    def GetCustomColorHSVRange(self, name):
-        """
-        Get HSV range for a custom color
-        """
-        if name in self.CustomColors:
-            return self.CustomColors[name]
-        return None
-
     def GetNextFrame(self):
         """
         Get the next frame from video capture
@@ -647,37 +602,6 @@ class CVCore:
             return frame
         else:
             return None
-
-
-    def IsCircularObject(self, contour):
-        """
-        Check if contour is roughly circular
-        Returns: True if circular, False otherwise
-        """
-        # Calculate area and perimeter
-        area = cv2.contourArea(contour)
-        perimeter = cv2.arcLength(contour, True)
-        
-        if perimeter == 0:
-            return False
-        
-        # Circularity = 4πA/P² (1.0 = perfect circle, < 1.0 = less circular)
-        circularity = 4 * 3.14159 * area / (perimeter * perimeter)
-        
-        # Consider circular if circularity > 0.7
-        return circularity > 0.7
-
-    def IsRectangularObject(self, contour):
-        """
-        Check if contour is roughly rectangular
-        Returns: True if rectangular, False otherwise
-        """
-        # Approximate contour to polygon
-        epsilon = 0.02 * cv2.arcLength(contour, True)
-        approx = cv2.approxPolyDP(contour, epsilon, True)
-        
-        # Rectangle should have 4 corners
-        return len(approx) == 4
 
     def CalculateCentroid(self, contour):
         """
@@ -742,29 +666,6 @@ class CVCore:
         return result_frame
 
 
-
-    def RenderFrame(self, frame=None):
-        """
-        Display a frame in the window
-        frame: frame to display, if None uses CurrentFrame
-        """
-        if frame is None:
-            frame = self.CurrentFrame
-        
-        if frame is not None:
-            cv2.imshow(self.WindowName, frame)
-    
-
-    def CheckWindowClosed(self):
-        try:
-            # Try to get window property
-            window_property = cv2.getWindowProperty(self.WindowName, cv2.WND_PROP_VISIBLE)
-            # If we get here, window exists but might not be visible
-            return window_property < 1
-        except cv2.error:
-            # If we get an error, window doesn't exist (was closed)
-            return True
-    
 
     def Shutdown(self):
         cv2.destroyAllWindows()
