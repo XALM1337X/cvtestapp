@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-from cvcore.ImageModule import ImageWrapper  # Importing ImageWrapper from ImageModule
 
 class CVCore:
     def __init__(self, win_name="default"):
@@ -636,34 +635,6 @@ class CVCore:
         # Return RGB values (OpenCV returns BGR, so reverse it)
         return (int(mean_color[2]), int(mean_color[1]), int(mean_color[0]))
 
-    def DetectObjects(self, frame):
-        """
-        Detect general objects using contour detection
-        frame: input frame
-        Returns: frame with detected objects highlighted
-        """
-        # Step 1: Convert to grayscale
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        
-        # Step 2: Apply Gaussian blur to reduce noise
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        
-        # Step 3: Find edges using Canny edge detection
-        edges = cv2.Canny(blurred, 50, 150)
-        
-        # Step 4: Find contours
-        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-        # Step 5: Draw contours on the original frame
-        result_frame = frame.copy()
-        
-        for contour in contours:
-            # Filter out small contours (noise)
-            area = cv2.contourArea(contour)
-            if area > 500:  # Only draw contours with area > 500 pixels
-                cv2.drawContours(result_frame, [contour], -1, (0, 255, 0), 2)  # Green outline
-        
-        return result_frame
 
 
 
